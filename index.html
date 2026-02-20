@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>St. Mark Adoration</title>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <style>
+        /* ZINSSER STYLE: Clean, Minimal, Legible */
+        :root { --primary: #2c3e50; --accent: #27ae60; --bg: #f8f9fa; }
+        body { font-family: -apple-system, system-ui, sans-serif; background: var(--bg); color: var(--primary); line-height: 1.6; margin: 0; padding: 20px; }
+        .container { max-width: 600px; margin: 0 auto; background: white; padding: 30px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.05); }
+        
+        h1 { text-align: center; margin-bottom: 10px; font-weight: 700; }
+        p.subtitle { text-align: center; color: #666; font-style: italic; margin-bottom: 30px; }
+        
+        /* The Grid */
+        .slot-card { border-bottom: 1px solid #eee; padding: 15px 0; display: flex; justify-content: space-between; align-items: center; }
+        .slot-time { font-weight: 600; font-size: 1.1rem; }
+        .slot-day { font-size: 0.8rem; text-transform: uppercase; color: #999; letter-spacing: 1px; }
+        .volunteers { font-size: 0.9rem; color: #555; margin-top: 5px; }
+        
+        /* Status Badges */
+        .badge { display: inline-block; padding: 2px 8px; border-radius: 12px; font-size: 0.75rem; font-weight: bold; margin-left: 10px; }
+        .badge.empty { background: #ffebee; color: #c62828; } /* Red */
+        .badge.filled { background: #e8f5e9; color: #2e7d32; } /* Green */
+
+        /* Button */
+        button.signup-btn { background: white; border: 1px solid var(--primary); color: var(--primary); padding: 5px 15px; border-radius: 4px; cursor: pointer; transition: all 0.2s; }
+        button.signup-btn:hover { background: var(--primary); color: white; }
+
+        /* Modal (Popup) */
+        .modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); align-items: center; justify-content: center; }
+        .modal-content { background: white; padding: 30px; border-radius: 8px; width: 90%; max-width: 400px; }
+        input { width: 100%; padding: 10px; margin: 10px 0; border: 1px solid #ddd; border-radius: 4px; box-sizing: border-box; }
+        .btn-submit { width: 100%; background: var(--accent); color: white; border: none; padding: 12px; border-radius: 4px; font-size: 1rem; cursor: pointer; }
+        .close { float: right; cursor: pointer; font-size: 1.5rem; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h1>Adoration Sign-Up</h1>
+    <p class="subtitle">"Could you not watch with me one hour?"</p>
+    
+    <div id="loading">Loading schedule...</div>
+    <div id="schedule"></div>
+</div>
+
+<div id="modal" class="modal">
+    <div class="modal-content">
+        <span class="close" onclick="closeModal()">&times;</span>
+        <h3 id="modal-title">Sign Up</h3>
+        <p style="font-size: 0.9rem; color: #666;">Your phone number is kept private.</p>
+        <form id="signup-form">
+            <input type="hidden" id="slot-id">
+            <input type="text" id="fname" placeholder="First Name" required>
+            <input type="text" id="lname" placeholder="Last Name" required>
+            <input type="tel" id="phone" placeholder="Mobile Phone" required>
+            <input type="email" id="email" placeholder="Email (Optional)">
+            <button type="submit" class="btn-submit">Confirm Commitment</button>
+        </form>
+    </div>
+</div>
+
+<script>
+    // --- CONFIGURATION ---
+    // REPLACE THESE WITH YOUR SUPABASE KEYS
+    const SUPABASE_URL = 'https://rctzlcvcyookbubmpnot.supabase.co';
+    const SUPABASE_KEY = 'sb_publishable_Z1ogXkL8OOumBAkMMZiXgg_I6XHZi4H';
+    
+    const client = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+    // --- LOGIC ---
+    async function loadSchedule() {
+        const scheduleDiv = document.getElementById('schedule');
+        document.getElementById('loading').style.display = 'block';
+
+        // 1. Fetch Slots
+        const { data: slots, error: err1 } = await client
+            .from('slots')
+            .select('*')
+            .order('sort_order');
+        
+        // 2. Fetch Public Volunteers (Safe View)
+        const { data: volunteers, error: err2 } = await client
+            .from('public_volunteers') // Using the secure view!
+            .select('*');
+
+        if (err1 || err2) { alert("Error loading data"); return; }
+
+        document.getElementById('loading').style.display = 'none';
+        scheduleDiv.innerHTML = ''; // Clear
+
+        // 3. Render
+        slots.forEach(slot => {
+            // Find people in this slot
+            const people = volunteers.filter(v => v.slot_id === slot.id);
+            const isFull = people.length > 0;
+            
+            // Create HTML
+            const card = document.createElement('div');
+            card.className = 'slot-card';
+            
+            let namesHtml = people.map(p => `<span>👤 ${p.first_name} ${p.last_initial}.</span>`).join(' ');
+            if (people.length === 0) namesHtml = '<span style="color:#ccc">Empty</span>';
+
+            card.innerHTML = `
+                <div>
+                    <div class="slot-day">${slot.day_text}</div>
+                    <span class="slot-time">${slot.display_label}</span>
+                    <span class="badge ${isFull ? 'filled' : 'empty'}">${people.length} Committed</span>
+                    <div class="volunteers">${namesHtml}</div>
+                </div>
+                <button class="signup-btn" onclick="openModal(${slot.id}, '${slot.display_label}')">Sign Up</button>
+            `;
+            scheduleDiv.appendChild(card);
+        });
+    }
+
+    // --- MODAL & FORM HANDLERS ---
+    function openModal(id, label) {
+        document.getElementById('modal').style.display = 'flex';
+        document.getElementById('slot-id').value = id;
+        document.getElementById('modal-title').innerText = "Commit: " + label;
+    }
+
+    function closeModal() {
+        document.getElementById('modal').style.display = 'none';
+    }
+
+    document.getElementById('signup-form').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const btn = document.querySelector('.btn-submit');
+        btn.innerText = "Saving...";
+        btn.disabled = true;
+
+        const data = {
+            slot_id: document.getElementById('slot-id').value,
+            first_name: document.getElementById('fname').value,
+            last_name: document.getElementById('lname').value,
+            phone: document.getElementById('phone').value,
+            email: document.getElementById('email').value
+        };
+
+        const { error } = await client.from('signups').insert(data);
+
+        if (error) {
+            alert("Error: " + error.message);
+        } else {
+            alert("Thank you! Your commitment is recorded.");
+            closeModal();
+            loadSchedule(); // Refresh list
+            document.getElementById('signup-form').reset();
+        }
+        btn.innerText = "Confirm Commitment";
+        btn.disabled = false;
+    });
+
+    // Load on start
+    loadSchedule();
+</script>
+
+</body>
+</html>
