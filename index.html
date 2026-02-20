@@ -90,7 +90,7 @@
         table.schedule {
             width: 100%;
             border-collapse: collapse;
-            min-width: 520px;
+            table-layout: fixed;
         }
 
         /* Column headers (week dates) */
@@ -147,7 +147,7 @@
             border-bottom: 1px solid var(--border);
             border-right: 1px solid var(--border);
             padding: 0;
-            min-width: 88px;
+            min-width: 78px;
             text-align: center;
         }
 
@@ -158,8 +158,8 @@
             flex-direction: column;
             align-items: center;
             justify-content: center;
-            padding: 7px 5px;
-            min-height: 52px;
+            padding: 6px 4px;
+            min-height: 44px;
             gap: 3px;
             cursor: pointer;
             transition: background 0.12s;
@@ -168,7 +168,7 @@
         .cell-inner:hover { background: #f0f7f2; }
 
         .cell-count {
-            font-size: 0.78rem;
+            font-size: 0.72rem;
             font-weight: 700;
             padding: 2px 7px;
             border-radius: 10px;
@@ -179,7 +179,7 @@
         .cell-count.filled { background: #e8f5e9; color: #2e7d32; }
 
         .cell-names {
-            font-size: 0.68rem;
+            font-size: 0.62rem;
             color: #888;
             line-height: 1.3;
             max-width: 80px;
@@ -187,7 +187,7 @@
         }
 
         .cell-cta {
-            font-size: 0.68rem;
+            font-size: 0.62rem;
             color: var(--accent);
             font-weight: 600;
             opacity: 0;
@@ -379,6 +379,37 @@
             font-size: 0.95rem;
         }
 
+        .callout {
+            background: #fff8e1;
+            border: 1px solid #ffe08a;
+            border-radius: 8px;
+            color: #7a5b12;
+            padding: 10px 12px;
+            margin: 0 auto 14px;
+            max-width: 1100px;
+            font-size: 0.82rem;
+            line-height: 1.4;
+        }
+
+        .week-actions {
+            display: flex;
+            gap: 8px;
+            margin: 0 0 10px;
+            flex-wrap: wrap;
+        }
+
+        .mini-btn {
+            border: 1px solid var(--border);
+            background: #f8fafb;
+            color: #445;
+            border-radius: 6px;
+            font-size: 0.75rem;
+            padding: 5px 8px;
+            cursor: pointer;
+        }
+
+        .mini-btn:hover { background: #f0f4f6; }
+
         /* ── Toast ───────────────────────────────────────────── */
         #toast {
             position: fixed;
@@ -408,7 +439,7 @@
             .header h1 { font-size: 1.4rem; }
             .modal-box { padding: 18px; }
             .field-row { flex-direction: column; gap: 0; }
-            th, td.slot-cell { min-width: 70px; }
+            th, td.slot-cell { min-width: 62px; }
         }
     </style>
 </head>
@@ -428,6 +459,7 @@
 </div>
 
 <div id="status">Loading schedule…</div>
+<div id="week-callout" class="callout" style="display:none;"></div>
 <div id="schedule"></div>
 
 <!-- ── Sign-Up Modal ─────────────────────────────────────────── -->
@@ -442,6 +474,11 @@
         </div>
 
         <p class="week-section-label">Select the weeks you want to commit to:</p>
+        <div class="week-actions">
+            <button type="button" class="mini-btn" onclick="setWeekSelection(true)">Select all</button>
+            <button type="button" class="mini-btn" onclick="setWeekSelection(false)">Clear</button>
+            <button type="button" class="mini-btn" onclick="selectOpenWeeks()">Only open weeks</button>
+        </div>
         <div class="week-selector" id="week-checkboxes">
             <!-- populated dynamically -->
         </div>
@@ -532,6 +569,16 @@
     // State tracked while a modal is open
     let modalSortOrder = null;
 
+    const EXPECTED_LENT_WEEKS = [
+        { date: '2026-02-19', label: 'Feb 19' },
+        { date: '2026-02-26', label: 'Feb 26' },
+        { date: '2026-03-05', label: 'Mar 5' },
+        { date: '2026-03-12', label: 'Mar 12' },
+        { date: '2026-03-19', label: 'Mar 19' },
+        { date: '2026-03-26', label: 'Mar 26' }
+    ];
+
+
     // ── Data loading ────────────────────────────────────────────
     async function loadSchedule() {
         document.getElementById('status').style.display = '';
@@ -583,8 +630,27 @@
             // Legacy schema: no week_start_date column yet → single-week fallback
             renderLegacy();
         } else {
+            showWeekCoverageHint();
             renderGrid();
         }
+    }
+
+    function showWeekCoverageHint() {
+        const callout = document.getElementById('week-callout');
+        const missing = EXPECTED_LENT_WEEKS.filter(w => !weeks.some(existing => existing.date === w.date));
+
+        if (missing.length === 0) {
+            callout.style.display = 'none';
+            return;
+        }
+
+        const labels = missing.map(w => w.label).join(', ');
+        callout.innerHTML = `
+            <strong>Heads up:</strong> The schedule is missing some Lent weeks (${esc(labels)}),
+            so volunteers can only commit to the weeks currently loaded in Supabase.
+            After seeding those week slots, parishioners will be able to sign up for multiple Fridays at once.
+        `;
+        callout.style.display = 'block';
     }
 
     function fmtDate(dateStr) {
@@ -670,43 +736,52 @@
 
     // ── Legacy single-week fallback (no week_start_date column) ─
     function renderLegacy() {
-        const wrap = document.createElement('div');
-        wrap.style.cssText =
-            'background:white;border-radius:10px;box-shadow:0 2px 12px rgba(0,0,0,0.07);padding:20px;';
+        const wrap = document.getElementById('schedule');
+        document.getElementById('week-callout').style.display = 'none';
 
-        allSlots.forEach(slot => {
-            const people   = allVolunteers.filter(v => v.slot_id === slot.id);
-            const isFilled = people.length > 0;
-            const namesHtml = people.length
-                ? people.map(p => `<span>👤 ${esc(p.first_name)} ${esc(p.last_initial)}.</span>`).join(' ')
-                : '<span style="color:#ccc">Empty</span>';
+        const outer = document.createElement('div');
+        outer.className = 'schedule-wrapper';
+        const table = document.createElement('table');
+        table.className = 'schedule';
 
-            const card = document.createElement('div');
-            card.style.cssText =
-                'border-bottom:1px solid #eee;padding:15px 0;display:flex;justify-content:space-between;align-items:center;';
-            card.innerHTML = `
-                <div>
-                    <div style="font-size:0.78rem;text-transform:uppercase;color:#999;letter-spacing:1px;">
-                        ${esc(slot.day_text)}
-                    </div>
-                    <span style="font-weight:600;font-size:1.05rem;">${esc(slot.display_label)}</span>
-                    <span style="display:inline-block;padding:2px 8px;border-radius:12px;font-size:0.75rem;
-                                 font-weight:700;margin-left:8px;
-                                 background:${isFilled ? '#e8f5e9' : '#ffebee'};
-                                 color:${isFilled ? '#2e7d32' : '#c62828'};">
-                        ${people.length} Committed
-                    </span>
-                    <div style="font-size:0.88rem;color:#555;margin-top:4px;">${namesHtml}</div>
-                </div>
-                <button onclick="openModalLegacy(${slot.id}, '${esc(slot.display_label)}')"
-                        style="background:white;border:1px solid #2c3e50;color:#2c3e50;
-                               padding:5px 14px;border-radius:5px;cursor:pointer;white-space:nowrap;">
-                    Sign Up
-                </button>`;
-            wrap.appendChild(card);
-        });
+        const thead = table.createTHead();
+        const headRow = thead.insertRow();
+        headRow.insertCell().outerHTML = `<th class="time-header">Time</th>`;
+        headRow.insertCell().outerHTML = `<th>This Week</th>`;
 
-        document.getElementById('schedule').appendChild(wrap);
+        const tbody = table.createTBody();
+        let lastDay = null;
+
+        allSlots
+            .sort((a, b) => a.sort_order - b.sort_order)
+            .forEach(slot => {
+                if (slot.day_text !== lastDay) {
+                    const bandRow = tbody.insertRow();
+                    bandRow.className = 'day-band';
+                    const bandCell = bandRow.insertCell();
+                    bandCell.colSpan = 2;
+                    bandCell.textContent = slot.day_text;
+                    lastDay = slot.day_text;
+                }
+
+                const row = tbody.insertRow();
+                row.insertCell().outerHTML =
+                    `<td class="time-label"><span class="time">${esc(slot.display_label)}</span></td>`;
+
+                const people = allVolunteers.filter(v => v.slot_id === slot.id);
+                const names = people.map(p => `${p.first_name} ${p.last_initial}.`).join(', ');
+                row.insertCell().outerHTML = `
+                    <td class="slot-cell">
+                        <div class="cell-inner" onclick="openModalLegacy(${slot.id}, '${esc(slot.display_label)}')">
+                            <span class="cell-count ${people.length ? 'filled' : 'empty'}">${people.length}</span>
+                            ${names ? `<span class="cell-names">${esc(names)}</span>` : ''}
+                            <span class="cell-cta">+ Sign Up</span>
+                        </div>
+                    </td>`;
+            });
+
+        outer.appendChild(table);
+        wrap.appendChild(outer);
     }
 
     // ── Modal (multi-week) ──────────────────────────────────────
@@ -730,7 +805,7 @@
 
             const lbl = document.createElement('label');
             lbl.innerHTML = `
-                <input type="checkbox" value="${slot.id}" ${isPreselect ? 'checked' : ''}>
+                <input type="checkbox" value="${slot.id}" data-count="${count}" ${isPreselect ? 'checked' : ''}>
                 <span class="week-label-text">${esc(w.label)}</span>
                 <span class="week-status-text">${count > 0 ? count + ' committed' : 'Open'}</span>`;
             container.appendChild(lbl);
@@ -755,6 +830,18 @@
         document.getElementById('modal').classList.remove('open');
         ['fname', 'lname', 'phone', 'email'].forEach(id => {
             document.getElementById(id).value = '';
+        });
+    }
+
+    function setWeekSelection(selectAll) {
+        document.querySelectorAll('#week-checkboxes input[type="checkbox"]').forEach(cb => {
+            cb.checked = selectAll;
+        });
+    }
+
+    function selectOpenWeeks() {
+        document.querySelectorAll('#week-checkboxes input[type="checkbox"]').forEach(cb => {
+            cb.checked = cb.dataset.count === '0';
         });
     }
 
