@@ -5,6 +5,11 @@ Yes. The app can show/select multiple Fridays only if your `slots` table contain
 
 If Supabase only has one week's rows, users will only see one Friday to sign up for.
 
+
+## Use this migration file as the source of truth
+If you changed the website over time, ignore any old inline SQL snippets you may have copied earlier.
+Always run `supabase/lent_2026_setup.sql` from this repo as the canonical version.
+
 ## One-time DB setup
 Run this SQL file in Supabase SQL editor:
 
