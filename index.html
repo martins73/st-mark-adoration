@@ -661,6 +661,7 @@
     // ── Multi-week grid rendering ───────────────────────────────
     function renderGrid() {
         const wrap = document.getElementById('schedule');
+        document.getElementById('week-callout').style.display = 'none';
 
         const outer = document.createElement('div');
         outer.className = 'schedule-wrapper';

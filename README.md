@@ -14,7 +14,6 @@ It will:
 - Add `week_start_date` and `week_label` columns (if missing).
 - Tag existing rows as `2026-02-19` (`Feb 19`).
 - Seed rows for the remaining Lenten weeks.
-- Preserve your original `start_time`/`end_time` columns while seeding.
 - Add a uniqueness index to avoid duplicate week/time slots.
 
 ## Verify data seeded correctly
@@ -32,8 +31,3 @@ You should see one row per Thursday date in Lent, each with the same `slot_count
 ## App behavior notes
 - Multi-week signup in the modal works once multiple weeks exist in `slots`.
 - A warning banner appears when expected Lent weeks are missing.
-
-
-## Important for your original schema
-Your original `slots` table has `start_time` and `end_time` as `NOT NULL`.
-The migration script in this repo now copies those fields when creating each new week, so it works with your exact schema.

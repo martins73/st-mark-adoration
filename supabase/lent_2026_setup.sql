@@ -14,10 +14,8 @@ SET week_start_date = '2026-02-19',
 WHERE week_start_date IS NULL;
 
 -- 3) Duplicate all base time slots into each remaining Lenten week
---    NOTE: your original schema includes start_time/end_time as NOT NULL, so
---    we must carry them forward in every inserted row.
 WITH base AS (
-  SELECT day_text, start_time, end_time, display_label, sort_order
+  SELECT day_text, display_label, sort_order
   FROM public.slots
   WHERE week_start_date = '2026-02-19'
 ),
@@ -29,23 +27,8 @@ weeks(week_start_date, week_label) AS (
     ('2026-03-19'::date, 'Mar 19'),
     ('2026-03-26'::date, 'Mar 26')
 )
-INSERT INTO public.slots (
-  day_text,
-  start_time,
-  end_time,
-  display_label,
-  sort_order,
-  week_start_date,
-  week_label
-)
-SELECT
-  b.day_text,
-  b.start_time,
-  b.end_time,
-  b.display_label,
-  b.sort_order,
-  w.week_start_date,
-  w.week_label
+INSERT INTO public.slots (day_text, display_label, sort_order, week_start_date, week_label)
+SELECT b.day_text, b.display_label, b.sort_order, w.week_start_date, w.week_label
 FROM base b
 CROSS JOIN weeks w
 WHERE NOT EXISTS (
