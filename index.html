@@ -508,7 +508,7 @@
         </p>
 
         <button class="btn-submit" id="submit-btn" onclick="submitSignup()">
-            Confirm Commitment
+            Confirm / Update Commitment
         </button>
     </div>
 </div>
@@ -575,7 +575,8 @@
         { date: '2026-03-05', label: 'Mar 5' },
         { date: '2026-03-12', label: 'Mar 12' },
         { date: '2026-03-19', label: 'Mar 19' },
-        { date: '2026-03-26', label: 'Mar 26' }
+        { date: '2026-03-26', label: 'Mar 26' },
+        { date: '2026-04-02', label: 'Holy Friday (Apr 3)' }
     ];
 
 
@@ -602,14 +603,24 @@
         allSlots      = slots      || [];
         allVolunteers = volunteers || [];
 
-        // Derive unique weeks
+        // Derive unique weeks from DB
         const weekMap = new Map();
         allSlots.forEach(s => {
             if (s.week_start_date && !weekMap.has(s.week_start_date)) {
                 weekMap.set(s.week_start_date, s.week_label || fmtDate(s.week_start_date));
             }
         });
-        weeks = [...weekMap.entries()]
+        const dbWeeksAvailable = weekMap.size > 0;
+
+        // Always show all expected Lent Fridays (including Holy Friday),
+        // even when those slot rows are not seeded yet.
+        const allWeekMap = new Map();
+        EXPECTED_LENT_WEEKS.forEach(w => allWeekMap.set(w.date, w.label));
+        [...weekMap.entries()].forEach(([date, label]) => {
+            allWeekMap.set(date, label);
+        });
+
+        weeks = [...allWeekMap.entries()]
             .sort(([a], [b]) => a.localeCompare(b))
             .map(([date, label]) => ({ date, label }));
 
@@ -626,7 +637,7 @@
         });
         timeSlots = [...tsMap.values()].sort((a, b) => a.sort_order - b.sort_order);
 
-        if (weeks.length === 0) {
+        if (!dbWeeksAvailable) {
             // Legacy schema: no week_start_date column yet → single-week fallback
             renderLegacy();
         } else {
@@ -647,8 +658,8 @@
         const labels = missing.map(w => w.label).join(', ');
         callout.innerHTML = `
             <strong>Heads up:</strong> The schedule is missing some Lent weeks (${esc(labels)}),
-            so volunteers can only commit to the weeks currently loaded in Supabase.
-            After seeding those week slots, parishioners will be able to sign up for multiple Fridays at once.
+            so those columns are currently shown as unavailable.
+            After seeding those week slots in Supabase, parishioners will be able to select them.
         `;
         callout.style.display = 'block';
     }
@@ -870,7 +881,7 @@
         const fname = document.getElementById('fname').value.trim();
         const lname = document.getElementById('lname').value.trim();
         const phone = document.getElementById('phone').value.trim();
-        const email = document.getElementById('email').value.trim();
+        const email = document.getElementById('email').value.trim().toLowerCase();
 
         if (!fname || !lname || !phone) {
             showToast('Please fill in your name and phone number.', 'error');
@@ -888,21 +899,36 @@
             email: email || null,
         }));
 
-        const { error } = await client.from('signups').insert(rows);
+        let error = null;
+
+        if (email) {
+            // Re-using an email updates commitments by replacing prior rows.
+            const { error: deleteError } = await client
+                .from('signups')
+                .delete()
+                .eq('email', email);
+
+            if (deleteError) {
+                error = deleteError;
+            }
+        }
+
+        if (!error) {
+            const { error: insertError } = await client.from('signups').insert(rows);
+            error = insertError;
+        }
 
         if (error) {
             showToast('Could not save: ' + error.message, 'error');
         } else {
             const n = slotIds.length;
-            showToast(
-                `Thank you, ${fname}! You're committed to ${n} slot${n !== 1 ? 's' : ''}.`,
-                'success'
-            );
+            const action = email ? 'updated' : 'saved';
+            showToast(`Thank you, ${fname}! Your commitments were ${action} for ${n} slot${n !== 1 ? 's' : ''}.`, 'success');
             closeModal();
             loadSchedule();
         }
 
-        btn.textContent = 'Confirm Commitment';
+        btn.textContent = 'Confirm / Update Commitment';
         btn.disabled    = false;
     }
 
