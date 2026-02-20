@@ -50,6 +50,33 @@
             color: #888;
         }
 
+        /* ── Edit mode banner ────────────────────────────────── */
+        #edit-banner {
+            display: none;
+            background: #fff8e1;
+            border: 1px solid #ffe082;
+            border-radius: 8px;
+            padding: 12px 16px;
+            margin-bottom: 16px;
+            text-align: center;
+            font-size: 0.9rem;
+            color: #5d4037;
+        }
+
+        #edit-banner strong { color: #e65100; }
+
+        #edit-banner button {
+            margin-top: 8px;
+            background: #e65100;
+            color: white;
+            border: none;
+            padding: 8px 20px;
+            border-radius: 6px;
+            font-size: 0.88rem;
+            font-weight: 600;
+            cursor: pointer;
+        }
+
         /* ── Legend ─────────────────────────────────────────── */
         .legend {
             display: flex;
@@ -115,7 +142,7 @@
             padding-left: 14px;
         }
 
-        /* Day separator rows (Thursday / Friday band) */
+        /* Day separator rows */
         tr.day-band td {
             background: #eef0f2;
             padding: 5px 14px;
@@ -177,6 +204,7 @@
 
         .cell-count.empty  { background: #ffebee; color: var(--red); }
         .cell-count.filled { background: #e8f5e9; color: #2e7d32; }
+        .cell-count.mine   { background: #e3f2fd; color: #1565c0; }
 
         .cell-names {
             font-size: 0.68rem;
@@ -204,7 +232,16 @@
 
         td.slot-cell.unavailable .cell-inner:hover { background: transparent; }
 
-        /* ── Modal ───────────────────────────────────────────── */
+        /* Edit mode: cell highlight for user's own slots */
+        td.slot-cell.my-slot .cell-inner {
+            background: #e8f4fd;
+        }
+
+        td.slot-cell.my-slot .cell-inner:hover {
+            background: #d0eaf9;
+        }
+
+        /* ── Modal (shared base) ─────────────────────────────── */
         .modal {
             display: none;
             position: fixed;
@@ -371,6 +408,120 @@
         .btn-submit:hover:not(:disabled) { background: #219a52; }
         .btn-submit:disabled { background: #aaa; cursor: default; }
 
+        /* ── Edit modal overrides ─────────────────────────────── */
+        #edit-modal .modal-box {
+            max-width: 600px;
+        }
+
+        .edit-grid-wrapper {
+            overflow-x: auto;
+            margin: 14px 0;
+            border: 1px solid var(--border);
+            border-radius: 8px;
+        }
+
+        .edit-grid-wrapper table.schedule {
+            min-width: 400px;
+        }
+
+        .edit-grid-wrapper td {
+            padding: 6px 8px;
+            text-align: center;
+            border-bottom: 1px solid var(--border);
+            border-right: 1px solid var(--border);
+            vertical-align: middle;
+        }
+
+        .edit-grid-wrapper td:last-child { border-right: none; }
+
+        .edit-grid-wrapper td input[type="checkbox"] {
+            width: 18px;
+            height: 18px;
+            accent-color: var(--accent);
+            cursor: pointer;
+        }
+
+        .edit-grid-wrapper td.unavail {
+            color: #ddd;
+            font-size: 0.78rem;
+        }
+
+        /* ── Success modal ────────────────────────────────────── */
+        .success-icon {
+            text-align: center;
+            font-size: 2.5rem;
+            margin-bottom: 8px;
+        }
+
+        .link-box {
+            background: #f8fffe;
+            border: 1px solid #a5d6a7;
+            border-radius: 8px;
+            padding: 14px;
+            margin: 16px 0;
+        }
+
+        .link-box-label {
+            font-size: 0.8rem;
+            font-weight: 700;
+            color: #2e7d32;
+            margin-bottom: 6px;
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+
+        .link-box-desc {
+            font-size: 0.78rem;
+            color: #666;
+            margin-bottom: 10px;
+        }
+
+        .link-display {
+            font-size: 0.73rem;
+            word-break: break-all;
+            background: white;
+            padding: 8px 10px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            color: #444;
+            font-family: monospace;
+            line-height: 1.4;
+        }
+
+        .link-actions {
+            display: flex;
+            gap: 8px;
+            margin-top: 10px;
+        }
+
+        .link-actions button, .link-actions a {
+            flex: 1;
+            padding: 9px 8px;
+            border-radius: 6px;
+            font-size: 0.82rem;
+            font-weight: 600;
+            cursor: pointer;
+            text-align: center;
+            text-decoration: none;
+            border: none;
+            display: inline-block;
+        }
+
+        .btn-copy {
+            background: var(--accent);
+            color: white;
+        }
+
+        .btn-copy:hover { background: #219a52; }
+
+        .btn-email {
+            background: #1565c0;
+            color: white;
+        }
+
+        .btn-email:hover { background: #0d47a1; }
+
         /* ── Status / Loading ────────────────────────────────── */
         #status {
             text-align: center;
@@ -409,6 +560,7 @@
             .modal-box { padding: 18px; }
             .field-row { flex-direction: column; gap: 0; }
             th, td.slot-cell { min-width: 70px; }
+            .link-actions { flex-direction: column; }
         }
     </style>
 </head>
@@ -418,6 +570,12 @@
     <h1>St. Mark Adoration</h1>
     <p class="quote">"Could you not watch with me one hour?" — Matthew 26:40</p>
     <p class="meta">Thursdays 9 PM through Fridays 7 PM &middot; Lent 2026</p>
+</div>
+
+<!-- Edit mode banner (shown only when ?token= is in URL) -->
+<div id="edit-banner">
+    <strong>Edit Mode</strong> — You're viewing your current commitments.<br>
+    <button onclick="openEditModal()">Open Schedule Editor</button>
 </div>
 
 <div class="legend">
@@ -461,7 +619,7 @@
             <input type="tel" id="phone" placeholder="(555) 000-0000" required autocomplete="tel">
         </div>
         <div class="field-group">
-            <label for="email">Email <span style="font-weight:400;color:#aaa;">(optional)</span></label>
+            <label for="email">Email <span style="font-weight:400;color:#aaa;">(recommended — to receive your edit link)</span></label>
             <input type="email" id="email" placeholder="jane@example.com" autocomplete="email">
         </div>
 
@@ -476,25 +634,92 @@
     </div>
 </div>
 
+<!-- ── Edit Mode Modal ────────────────────────────────────────── -->
+<div id="edit-modal" class="modal" role="dialog" aria-modal="true" aria-labelledby="edit-modal-title">
+    <div class="modal-box" style="max-width:600px;">
+        <div class="modal-header">
+            <div>
+                <h3 id="edit-modal-title">Edit Your Schedule</h3>
+                <div class="modal-sub" id="edit-modal-sub">Check the slots you want to commit to</div>
+            </div>
+            <button class="modal-close" onclick="closeEditModal()" aria-label="Close">&times;</button>
+        </div>
+
+        <p style="font-size:0.82rem;color:#666;margin:8px 0 4px;">
+            Check every slot and week you want to attend. Uncheck to remove a commitment.
+        </p>
+
+        <div class="edit-grid-wrapper" id="edit-grid-container">
+            <!-- populated dynamically -->
+        </div>
+
+        <button class="btn-submit" id="edit-submit-btn" onclick="saveEdit()" style="margin-top:4px;">
+            Save Changes
+        </button>
+        <button onclick="closeEditModal()" style="width:100%;margin-top:8px;background:none;border:1px solid #ddd;color:#555;padding:10px;border-radius:7px;font-size:0.92rem;cursor:pointer;">
+            Cancel
+        </button>
+    </div>
+</div>
+
+<!-- ── Success Modal ──────────────────────────────────────────── -->
+<div id="success-modal" class="modal" role="dialog" aria-modal="true">
+    <div class="modal-box">
+        <div style="text-align:center;font-size:2.2rem;margin-bottom:6px;">&#10004;</div>
+        <h3 style="text-align:center;font-size:1.15rem;margin-bottom:4px;">You're signed up!</h3>
+        <p style="text-align:center;font-size:0.85rem;color:#666;margin-bottom:0;">
+            Thank you for committing to adoration.
+        </p>
+
+        <div class="link-box">
+            <div class="link-box-label">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
+                Your Personal Edit Link
+            </div>
+            <p class="link-box-desc">
+                Save this link to change your schedule later — no login needed. Bookmark it or send it to yourself.
+            </p>
+            <div class="link-display" id="success-link-display"></div>
+            <div class="link-actions">
+                <button class="btn-copy" onclick="copyEditLink()">Copy Link</button>
+                <a id="mailto-link" class="btn-email" href="#">Email to myself</a>
+            </div>
+        </div>
+
+        <button onclick="closeSuccessModal()" style="width:100%;background:var(--primary);color:white;border:none;padding:12px;border-radius:7px;font-size:0.95rem;font-weight:600;cursor:pointer;">
+            Done
+        </button>
+    </div>
+</div>
+
 <div id="toast" role="status"></div>
 
 <script>
     /*
     ═══════════════════════════════════════════════════════════════
-     DB SETUP — Run this SQL once in your Supabase SQL editor
-     to enable multi-week support.
+     SUPABASE SETUP — Run this SQL once in your Supabase SQL editor
     ───────────────────────────────────────────────────────────────
 
-    -- 1. Add week columns to the slots table
+    -- 1. Add week columns to slots (safe to run even if already exists)
     ALTER TABLE slots ADD COLUMN IF NOT EXISTS week_start_date DATE;
     ALTER TABLE slots ADD COLUMN IF NOT EXISTS week_label      TEXT;
 
-    -- 2. Tag your existing slots as the first week (Feb 19)
+    -- 2. Add edit token column to signups
+    ALTER TABLE signups ADD COLUMN IF NOT EXISTS edit_token UUID;
+    CREATE INDEX IF NOT EXISTS idx_signups_edit_token ON signups(edit_token);
+
+    -- 3. Create the public_volunteers view
+    CREATE OR REPLACE VIEW public_volunteers AS
+    SELECT slot_id, first_name, LEFT(last_name, 1) AS last_initial
+    FROM signups;
+
+    -- 4. Tag existing slots as week 1 (Feb 19) — skip if already done
     UPDATE slots
     SET week_start_date = '2026-02-19', week_label = 'Feb 19'
     WHERE week_start_date IS NULL;
 
-    -- 3. Duplicate time slots for each remaining Lenten Thursday
+    -- 5. Create slots for remaining Lenten weeks
+    --    (Only run if your slots table only has the first week)
     INSERT INTO slots (day_text, display_label, sort_order, week_start_date, week_label)
     SELECT day_text, display_label, sort_order, '2026-02-26', 'Feb 26'
     FROM slots WHERE week_start_date = '2026-02-19';
@@ -515,6 +740,19 @@
     SELECT day_text, display_label, sort_order, '2026-03-26', 'Mar 26'
     FROM slots WHERE week_start_date = '2026-02-19';
 
+    -- 6. RLS policies (if Row Level Security is enabled on your tables)
+    --    Run these so the anon key can read/write signups:
+
+    ALTER TABLE signups ENABLE ROW LEVEL SECURITY;
+
+    DROP POLICY IF EXISTS "allow_insert"         ON signups;
+    DROP POLICY IF EXISTS "allow_select_by_token" ON signups;
+    DROP POLICY IF EXISTS "allow_delete_by_token" ON signups;
+
+    CREATE POLICY "allow_insert"         ON signups FOR INSERT WITH CHECK (true);
+    CREATE POLICY "allow_select_by_token" ON signups FOR SELECT USING (true);
+    CREATE POLICY "allow_delete_by_token" ON signups FOR DELETE USING (true);
+
     ═══════════════════════════════════════════════════════════════
     */
 
@@ -523,14 +761,36 @@
     const SUPABASE_KEY = 'sb_publishable_Z1ogXkL8OOumBAkMMZiXgg_I6XHZi4H';
     const client = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
+    // Base URL for generating edit links (works on any host/path)
+    const EDIT_LINK_BASE = location.origin + location.pathname;
+
     // ── App state ───────────────────────────────────────────────
     let allSlots      = [];
     let allVolunteers = [];
     let weeks         = [];   // [{date, label}] sorted ascending
-    let timeSlots     = [];   // [{sort_order, display_label, day_text}] sorted
+    let timeSlots     = [];   // [{sort_order, display_label, day_text}]
 
-    // State tracked while a modal is open
+    // Signup modal state
     let modalSortOrder = null;
+
+    // Edit mode state (populated when ?token= is in URL)
+    let editToken         = null;
+    let editCurrentSlotIds = [];    // slot IDs the volunteer is currently signed up for
+    let editVolunteerInfo  = null;  // {first_name, last_name, phone, email}
+
+    // Generated edit link for success modal
+    let lastEditLink = '';
+
+    // ── On page load: check for edit token ─────────────────────
+    const urlParams = new URLSearchParams(location.search);
+    const urlToken  = urlParams.get('token');
+
+    if (urlToken) {
+        editToken = urlToken;
+        loadEditMode(urlToken);
+    } else {
+        loadSchedule();
+    }
 
     // ── Data loading ────────────────────────────────────────────
     async function loadSchedule() {
@@ -580,11 +840,67 @@
         timeSlots = [...tsMap.values()].sort((a, b) => a.sort_order - b.sort_order);
 
         if (weeks.length === 0) {
-            // Legacy schema: no week_start_date column yet → single-week fallback
             renderLegacy();
         } else {
             renderGrid();
         }
+    }
+
+    // ── Edit mode loading ───────────────────────────────────────
+    async function loadEditMode(token) {
+        // Show edit banner
+        document.getElementById('edit-banner').style.display = 'block';
+
+        // Load schedule first (needed for the grid)
+        await loadSchedule();
+
+        // Fetch this volunteer's signups by token
+        const { data: mySignups, error } = await client
+            .from('signups')
+            .select('*')
+            .eq('edit_token', token);
+
+        if (error) {
+            showToast('Could not load your signups: ' + error.message, 'error');
+            return;
+        }
+
+        if (!mySignups || mySignups.length === 0) {
+            document.getElementById('edit-banner').innerHTML =
+                '<strong>Invalid or expired link.</strong> This edit link was not found. ' +
+                'Please use the link that was shown when you originally signed up.';
+            return;
+        }
+
+        const first = mySignups[0];
+        editVolunteerInfo = {
+            first_name: first.first_name,
+            last_name:  first.last_name,
+            phone:      first.phone,
+            email:      first.email || '',
+        };
+        editCurrentSlotIds = mySignups.map(s => String(s.slot_id));
+
+        // Highlight their cells in the schedule grid
+        highlightMySlots();
+
+        // Auto-open the edit modal
+        openEditModal();
+    }
+
+    // ── Highlight the volunteer's slots in the main grid ────────
+    function highlightMySlots() {
+        if (!editCurrentSlotIds.length) return;
+        allSlots.forEach(slot => {
+            if (editCurrentSlotIds.includes(String(slot.id))) {
+                // Find the cell by its onclick attribute's slot id indirectly
+                // via data attributes set during render
+                const cell = document.querySelector(`[data-slot-id="${slot.id}"]`);
+                if (cell) {
+                    cell.closest('td').classList.add('my-slot');
+                }
+            }
+        });
     }
 
     function fmtDate(dateStr) {
@@ -602,7 +918,7 @@
         const table = document.createElement('table');
         table.className = 'schedule';
 
-        // ── thead ──
+        // thead
         const thead = table.createTHead();
         const headRow = thead.insertRow();
         headRow.insertCell().outerHTML = `<th class="time-header">Time</th>`;
@@ -612,12 +928,11 @@
             headRow.appendChild(th);
         });
 
-        // ── tbody ──
+        // tbody
         const tbody = table.createTBody();
         let lastDay = null;
 
         timeSlots.forEach(ts => {
-            // Day band separator (e.g., "Thursday" / "Friday")
             if (ts.day_text !== lastDay) {
                 const bandRow = tbody.insertRow();
                 bandRow.className = 'day-band';
@@ -649,17 +964,21 @@
                 }
 
                 const people   = allVolunteers.filter(v => v.slot_id === slot.id);
+                const isMine   = editCurrentSlotIds.includes(String(slot.id));
                 const isFilled = people.length > 0;
                 const names    = people.map(p => `${p.first_name} ${p.last_initial}.`).join(', ');
 
+                if (isMine) td.classList.add('my-slot');
+
                 td.innerHTML = `
                     <div class="cell-inner"
+                         data-slot-id="${slot.id}"
                          onclick="openModal(${ts.sort_order}, '${esc(ts.display_label)}', '${esc(ts.day_text)}', '${w.date}')">
-                        <span class="cell-count ${isFilled ? 'filled' : 'empty'}">
+                        <span class="cell-count ${isMine ? 'mine' : (isFilled ? 'filled' : 'empty')}">
                             ${people.length > 0 ? people.length : '0'}
                         </span>
                         ${names ? `<span class="cell-names">${esc(names)}</span>` : ''}
-                        <span class="cell-cta">+ Sign Up</span>
+                        <span class="cell-cta">${isMine ? 'Signed up' : '+ Sign Up'}</span>
                     </div>`;
             });
         });
@@ -668,17 +987,17 @@
         wrap.appendChild(outer);
     }
 
-    // ── Legacy single-week fallback (no week_start_date column) ─
+    // ── Legacy single-week fallback ─────────────────────────────
     function renderLegacy() {
         const wrap = document.createElement('div');
         wrap.style.cssText =
             'background:white;border-radius:10px;box-shadow:0 2px 12px rgba(0,0,0,0.07);padding:20px;';
 
         allSlots.forEach(slot => {
-            const people   = allVolunteers.filter(v => v.slot_id === slot.id);
-            const isFilled = people.length > 0;
+            const people    = allVolunteers.filter(v => v.slot_id === slot.id);
+            const isFilled  = people.length > 0;
             const namesHtml = people.length
-                ? people.map(p => `<span>👤 ${esc(p.first_name)} ${esc(p.last_initial)}.</span>`).join(' ')
+                ? people.map(p => `<span>&#128100; ${esc(p.first_name)} ${esc(p.last_initial)}.</span>`).join(' ')
                 : '<span style="color:#ccc">Empty</span>';
 
             const card = document.createElement('div');
@@ -709,8 +1028,13 @@
         document.getElementById('schedule').appendChild(wrap);
     }
 
-    // ── Modal (multi-week) ──────────────────────────────────────
+    // ── Signup Modal (multi-week) ────────────────────────────────
     function openModal(sortOrder, timeLabel, dayText, preselectedDate) {
+        if (editToken) {
+            // In edit mode, clicking a cell opens the edit modal instead
+            openEditModal();
+            return;
+        }
         modalSortOrder = sortOrder;
 
         document.getElementById('modal-title').textContent = timeLabel;
@@ -740,7 +1064,6 @@
         document.getElementById('fname').focus();
     }
 
-    // Legacy: single fixed slot (no weeks)
     function openModalLegacy(slotId, label) {
         document.getElementById('modal-title').textContent = label;
         document.getElementById('modal-sub').textContent   = '';
@@ -758,10 +1081,154 @@
         });
     }
 
-    // Close on backdrop click
     document.getElementById('modal').addEventListener('click', e => {
         if (e.target === document.getElementById('modal')) closeModal();
     });
+
+    // ── Edit Modal ──────────────────────────────────────────────
+    function openEditModal() {
+        const container = document.getElementById('edit-grid-container');
+        container.innerHTML = '';
+
+        if (editVolunteerInfo) {
+            document.getElementById('edit-modal-sub').textContent =
+                `Editing: ${editVolunteerInfo.first_name} ${editVolunteerInfo.last_name}`;
+        }
+
+        // Build a mini schedule table with checkboxes
+        const table = document.createElement('table');
+        table.className = 'schedule';
+
+        // Header
+        const thead = table.createTHead();
+        const headRow = thead.insertRow();
+        headRow.insertCell().outerHTML = `<th class="time-header" style="font-size:0.75rem;">Time</th>`;
+        weeks.forEach(w => {
+            const th = document.createElement('th');
+            th.textContent = w.label;
+            th.style.fontSize = '0.75rem';
+            headRow.appendChild(th);
+        });
+
+        // Body
+        const tbody = table.createTBody();
+        let lastDay = null;
+
+        timeSlots.forEach(ts => {
+            if (ts.day_text !== lastDay) {
+                const bandRow = tbody.insertRow();
+                bandRow.className = 'day-band';
+                const bandCell = bandRow.insertCell();
+                bandCell.colSpan = weeks.length + 1;
+                bandCell.textContent = ts.day_text;
+                lastDay = ts.day_text;
+            }
+
+            const row = tbody.insertRow();
+            const timeTd = row.insertCell();
+            timeTd.className = 'time-label';
+            timeTd.style.fontSize = '0.82rem';
+            timeTd.innerHTML = `<span class="time">${ts.display_label}</span>`;
+
+            weeks.forEach(w => {
+                const slot = allSlots.find(
+                    s => s.sort_order === ts.sort_order && s.week_start_date === w.date
+                );
+                const td = row.insertCell();
+                td.style.textAlign = 'center';
+                td.style.padding = '5px';
+                td.style.borderBottom = '1px solid var(--border)';
+                td.style.borderRight = '1px solid var(--border)';
+
+                if (!slot) {
+                    td.className = 'unavail';
+                    td.textContent = '—';
+                    return;
+                }
+
+                const isChecked = editCurrentSlotIds.includes(String(slot.id));
+                td.innerHTML = `
+                    <label style="cursor:pointer;display:flex;align-items:center;justify-content:center;">
+                        <input type="checkbox"
+                               class="edit-slot-cb"
+                               value="${slot.id}"
+                               ${isChecked ? 'checked' : ''}
+                               style="width:17px;height:17px;accent-color:var(--accent);">
+                    </label>`;
+            });
+        });
+
+        container.appendChild(table);
+        document.getElementById('edit-modal').classList.add('open');
+    }
+
+    function closeEditModal() {
+        document.getElementById('edit-modal').classList.remove('open');
+    }
+
+    document.getElementById('edit-modal').addEventListener('click', e => {
+        if (e.target === document.getElementById('edit-modal')) closeEditModal();
+    });
+
+    // ── Save edits ──────────────────────────────────────────────
+    async function saveEdit() {
+        const btn = document.getElementById('edit-submit-btn');
+        btn.textContent = 'Saving…';
+        btn.disabled    = true;
+
+        // Collect newly selected slot IDs
+        const newSlotIds = [...document.querySelectorAll('.edit-slot-cb:checked')]
+            .map(cb => cb.value);
+
+        if (newSlotIds.length === 0) {
+            showToast('Please select at least one slot.', 'error');
+            btn.textContent = 'Save Changes';
+            btn.disabled    = false;
+            return;
+        }
+
+        // Delete all existing signups for this token
+        const { error: delError } = await client
+            .from('signups')
+            .delete()
+            .eq('edit_token', editToken);
+
+        if (delError) {
+            showToast('Could not update: ' + delError.message, 'error');
+            btn.textContent = 'Save Changes';
+            btn.disabled    = false;
+            return;
+        }
+
+        // Re-insert with same token and same volunteer info
+        const rows = newSlotIds.map(slot_id => ({
+            slot_id,
+            first_name: editVolunteerInfo.first_name,
+            last_name:  editVolunteerInfo.last_name,
+            phone:      editVolunteerInfo.phone,
+            email:      editVolunteerInfo.email || null,
+            edit_token: editToken,
+        }));
+
+        const { error: insError } = await client.from('signups').insert(rows);
+
+        if (insError) {
+            showToast('Could not save changes: ' + insError.message, 'error');
+        } else {
+            editCurrentSlotIds = newSlotIds;
+            closeEditModal();
+            showToast(
+                `Updated! You're committed to ${newSlotIds.length} slot${newSlotIds.length !== 1 ? 's' : ''}.`,
+                'success'
+            );
+            // Reload schedule to reflect changes
+            await loadSchedule();
+            highlightMySlots();
+        }
+
+        btn.textContent = 'Save Changes';
+        btn.disabled    = false;
+    }
 
     // ── Sign-up submission ──────────────────────────────────────
     async function submitSignup() {
@@ -792,12 +1259,16 @@
         btn.textContent = 'Saving…';
         btn.disabled    = true;
 
+        // Generate a single token shared across all slots in this signup session
+        const token = crypto.randomUUID();
+
         const rows = slotIds.map(slot_id => ({
             slot_id,
             first_name: fname,
             last_name:  lname,
             phone,
             email: email || null,
+            edit_token: token,
         }));
 
         const { error } = await client.from('signups').insert(rows);
@@ -805,17 +1276,58 @@
         if (error) {
             showToast('Could not save: ' + error.message, 'error');
         } else {
-            const n = slotIds.length;
-            showToast(
-                `Thank you, ${fname}! You're committed to ${n} slot${n !== 1 ? 's' : ''}.`,
-                'success'
-            );
             closeModal();
+            const editLink = EDIT_LINK_BASE + '?token=' + token;
+            lastEditLink   = editLink;
+            showSuccessModal(editLink, email, fname);
             loadSchedule();
         }
 
         btn.textContent = 'Confirm Commitment';
         btn.disabled    = false;
+    }
+
+    // ── Success modal ────────────────────────────────────────────
+    function showSuccessModal(editLink, email, firstName) {
+        document.getElementById('success-link-display').textContent = editLink;
+
+        // Build mailto link if email was provided
+        const mailtoLink = document.getElementById('mailto-link');
+        if (email) {
+            const subject = encodeURIComponent('Your St. Mark Adoration Edit Link');
+            const body    = encodeURIComponent(
+                `Hi ${firstName},\n\nHere is your personal link to view or change your adoration schedule:\n\n${editLink}\n\nNo login is required — just click the link anytime.\n\nGod bless you!`
+            );
+            mailtoLink.href  = `mailto:${encodeURIComponent(email)}?subject=${subject}&body=${body}`;
+            mailtoLink.style.display = '';
+        } else {
+            mailtoLink.style.display = 'none';
+        }
+
+        document.getElementById('success-modal').classList.add('open');
+    }
+
+    function closeSuccessModal() {
+        document.getElementById('success-modal').classList.remove('open');
+    }
+
+    document.getElementById('success-modal').addEventListener('click', e => {
+        if (e.target === document.getElementById('success-modal')) closeSuccessModal();
+    });
+
+    function copyEditLink() {
+        navigator.clipboard.writeText(lastEditLink || document.getElementById('success-link-display').textContent)
+            .then(() => showToast('Link copied!', 'success'))
+            .catch(() => {
+                // Fallback for browsers without clipboard API
+                const el = document.getElementById('success-link-display');
+                const range = document.createRange();
+                range.selectNodeContents(el);
+                const sel = window.getSelection();
+                sel.removeAllRanges();
+                sel.addRange(range);
+                showToast('Link selected — press Ctrl+C to copy', '');
+            });
     }
 
     // ── Toast ───────────────────────────────────────────────────
@@ -837,13 +1349,14 @@
             .replace(/'/g, '&#39;');
     }
 
-    // ── Keyboard: Escape closes modal ───────────────────────────
+    // ── Keyboard: Escape closes modals ───────────────────────────
     document.addEventListener('keydown', e => {
-        if (e.key === 'Escape') closeModal();
+        if (e.key === 'Escape') {
+            closeModal();
+            closeEditModal();
+            closeSuccessModal();
+        }
     });
-
-    // ── Init ────────────────────────────────────────────────────
-    loadSchedule();
 </script>
 
 </body>
