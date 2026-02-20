@@ -518,40 +518,21 @@
 <script>
     /*
     ═══════════════════════════════════════════════════════════════
-     DB SETUP — Run this SQL once in your Supabase SQL editor
-     to enable multi-week support.
+     DB SETUP (IMPORTANT)
     ───────────────────────────────────────────────────────────────
+     Do NOT use older SQL snippets that only insert:
+       (day_text, display_label, sort_order, week_start_date, week_label)
+     because your original `slots` schema requires NOT NULL `start_time`
+     and `end_time`.
 
-    -- 1. Add week columns to the slots table
-    ALTER TABLE slots ADD COLUMN IF NOT EXISTS week_start_date DATE;
-    ALTER TABLE slots ADD COLUMN IF NOT EXISTS week_label      TEXT;
+     Instead run the maintained migration file in Supabase SQL editor:
+       supabase/lent_2026_setup.sql
 
-    -- 2. Tag your existing slots as the first week (Feb 19)
-    UPDATE slots
-    SET week_start_date = '2026-02-19', week_label = 'Feb 19'
-    WHERE week_start_date IS NULL;
-
-    -- 3. Duplicate time slots for each remaining Lenten Thursday
-    INSERT INTO slots (day_text, display_label, sort_order, week_start_date, week_label)
-    SELECT day_text, display_label, sort_order, '2026-02-26', 'Feb 26'
-    FROM slots WHERE week_start_date = '2026-02-19';
-
-    INSERT INTO slots (day_text, display_label, sort_order, week_start_date, week_label)
-    SELECT day_text, display_label, sort_order, '2026-03-05', 'Mar 5'
-    FROM slots WHERE week_start_date = '2026-02-19';
-
-    INSERT INTO slots (day_text, display_label, sort_order, week_start_date, week_label)
-    SELECT day_text, display_label, sort_order, '2026-03-12', 'Mar 12'
-    FROM slots WHERE week_start_date = '2026-02-19';
-
-    INSERT INTO slots (day_text, display_label, sort_order, week_start_date, week_label)
-    SELECT day_text, display_label, sort_order, '2026-03-19', 'Mar 19'
-    FROM slots WHERE week_start_date = '2026-02-19';
-
-    INSERT INTO slots (day_text, display_label, sort_order, week_start_date, week_label)
-    SELECT day_text, display_label, sort_order, '2026-03-26', 'Mar 26'
-    FROM slots WHERE week_start_date = '2026-02-19';
-
+     That migration safely:
+     - adds week columns,
+     - backfills week labels,
+     - seeds missing Lent weeks,
+     - and preserves/copies non-null start/end times.
     ═══════════════════════════════════════════════════════════════
     */
 
@@ -658,8 +639,8 @@
         const labels = missing.map(w => w.label).join(', ');
         callout.innerHTML = `
             <strong>Heads up:</strong> The schedule is missing some Lent weeks (${esc(labels)}),
-            so those columns are currently shown as unavailable.
-            After seeding those week slots in Supabase, parishioners will be able to select them.
+            so volunteers can only commit to the weeks currently loaded in Supabase.
+            After seeding those week slots, parishioners will be able to sign up for multiple Fridays at once.
         `;
         callout.style.display = 'block';
     }

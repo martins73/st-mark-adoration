@@ -13,11 +13,24 @@ SET week_start_date = '2026-02-19',
     week_label      = 'Feb 19'
 WHERE week_start_date IS NULL;
 
--- 3) Duplicate all base time slots into each remaining Lenten week
-WITH base AS (
-  SELECT day_text, display_label, sort_order
+-- 3) Duplicate all time slots into each remaining Lenten week.
+--    Important: do NOT depend on only one "base" week row for times,
+--    because some environments already have partial rows with NULL times.
+--    We build a canonical row per sort_order using any non-null times found.
+WITH canonical AS (
+  SELECT DISTINCT ON (sort_order)
+    day_text,
+    start_time,
+    end_time,
+    display_label,
+    sort_order
   FROM public.slots
-  WHERE week_start_date = '2026-02-19'
+  ORDER BY
+    sort_order,
+    (start_time IS NULL),
+    (end_time IS NULL),
+    week_start_date NULLS FIRST,
+    id
 ),
 weeks(week_start_date, week_label) AS (
   VALUES
@@ -27,16 +40,33 @@ weeks(week_start_date, week_label) AS (
     ('2026-03-19'::date, 'Mar 19'),
     ('2026-03-26'::date, 'Mar 26')
 )
-INSERT INTO public.slots (day_text, display_label, sort_order, week_start_date, week_label)
-SELECT b.day_text, b.display_label, b.sort_order, w.week_start_date, w.week_label
-FROM base b
+INSERT INTO public.slots (
+  day_text,
+  start_time,
+  end_time,
+  display_label,
+  sort_order,
+  week_start_date,
+  week_label
+)
+SELECT
+  c.day_text,
+  c.start_time,
+  c.end_time,
+  c.display_label,
+  c.sort_order,
+  w.week_start_date,
+  w.week_label
+FROM canonical c
 CROSS JOIN weeks w
-WHERE NOT EXISTS (
-  SELECT 1
-  FROM public.slots s
-  WHERE s.sort_order = b.sort_order
-    AND s.week_start_date = w.week_start_date
-);
+WHERE c.start_time IS NOT NULL
+  AND c.end_time IS NOT NULL
+  AND NOT EXISTS (
+    SELECT 1
+    FROM public.slots s
+    WHERE s.sort_order = c.sort_order
+      AND s.week_start_date = w.week_start_date
+  );
 
 -- 4) Helpful uniqueness guard to prevent duplicate slot per week/time
 CREATE UNIQUE INDEX IF NOT EXISTS slots_week_sort_unique
